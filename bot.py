@@ -78,6 +78,52 @@ async def market(ctx: commands.Context, *, query: str):
         !market Bitcoin 200k 2027
         /market Trump election 2028
     """
+ # Validation
+    if not query or len(query.strip()) < 3:
+        await ctx.send("⚠️ Please provide at least 3 characters to search.")
+        return
+    
+    async with ctx.typing():
+        try:
+            # Get markets (cached or fresh)
+            markets = await polymarket_client.get_markets()
+            
+            # DEBUG: Print sample market questions
+            print(f"\n{'='*60}")
+            print(f"DEBUG: Total markets fetched: {len(markets)}")
+            print(f"DEBUG: Query: '{query}'")
+            print("\nDEBUG: Sample market questions (first 10):")
+            for i, market in enumerate(markets[:10]):
+                print(f"  {i+1}. {market.get('question', 'NO QUESTION FIELD')}")
+            
+            # Find matches
+            matches = find_matching_markets(query, markets)
+            
+            # DEBUG: Print match results
+            print(f"\nDEBUG: Matches found: {len(matches)}")
+            if matches:
+                print("DEBUG: Match details:")
+                for market, score in matches:
+                    print(f"  - Score {score:.1f}: '{market.get('question', 'NO QUESTION')}'")
+            else:
+                print("DEBUG: No matches above threshold of 60")
+            print(f"{'='*60}\n")
+            
+            # Build appropriate embed
+            if not matches:
+                embed = build_no_matches_embed(query)
+            elif len(matches) == 1 or matches[0][1] > 85:
+                embed = build_single_market_embed(matches[0][0])
+            else:
+                embed = build_multiple_matches_embed(query, matches)
+            
+            # Send response
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            await ctx.send(f"❌ An error occurred: {str(e)}")
+            print(f"Error in market command: {e}")
+
     # Input validation
     if not query or not query.strip():
         await ctx.send(

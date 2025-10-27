@@ -58,7 +58,7 @@ def find_matching_markets(query: str, markets: List[Dict]) -> List[Tuple[Dict, f
         market_questions,
         scorer=fuzz.token_set_ratio,
         limit=5,
-        score_cutoff=60
+        score_cutoff=45
     )
     
     # Convert results to list of (market_object, score) tuples
