@@ -6,7 +6,7 @@ A Discord bot that allows users to search and display Polymarket prediction mark
 ![Discord.py](https://img.shields.io/badge/discord.py-2.0+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone and navigate to the repository
@@ -28,7 +28,7 @@ cp .env.example .env
 python bot.py
 ```
 
-## ✨ Features
+## Features
 
 - **Natural Language Search**: Search for markets using everyday language
 - **Fuzzy Matching**: Finds relevant markets even with typos or approximate queries
@@ -39,13 +39,13 @@ python bot.py
 - **Error Handling**: Graceful handling of API failures, timeouts, and invalid inputs
 - **Rate Limiting**: Per-user cooldowns prevent spam
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Python 3.8 or higher**
 - **Discord Bot Token** (from Discord Developer Portal)
 - **Discord Server** for testing
 
-## 🛠️ Installation
+## Installation
 
 ### 1. Create a Discord Bot
 
@@ -128,7 +128,7 @@ Bot is in 1 server(s)
 Synced 1 slash command(s)
 ```
 
-## 📖 Usage
+## Usage
 
 ### Commands
 
@@ -189,7 +189,7 @@ User: !market alien invasion 2025
 Bot: [Embed with "No markets found" and helpful suggestions]
 ```
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 polymarket-discord-bot/
@@ -211,7 +211,7 @@ polymarket-discord-bot/
 - **fuzzy_matcher.py**: Uses RapidFuzz to find relevant markets with typo tolerance
 - **embed_builder.py**: Creates beautifully formatted Discord embeds for different scenarios
 
-## 🎨 Embed Types
+## Embed Types
 
 ### Single Market Embed
 Shown when a high-confidence match is found (score > 85%) or only one result exists.
@@ -240,7 +240,7 @@ Features:
 - Search suggestions
 - Link to Polymarket search page
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -263,7 +263,7 @@ Minimum required permissions:
 
 **Note**: Do NOT grant Administrator permissions. The bot doesn't need them.
 
-## 🚀 Deployment
+## Deployment
 
 ### Railway (Recommended)
 
@@ -343,7 +343,7 @@ sudo systemctl start polymarket-bot
 sudo systemctl status polymarket-bot
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Bot Doesn't Connect
 
@@ -394,7 +394,7 @@ sudo systemctl status polymarket-bot
 - Restart the bot to clear cache
 - Reduce `CACHE_TTL_SECONDS` for more frequent updates
 
-## 🧪 Testing
+## Testing
 
 ### Manual Testing Checklist
 
@@ -430,7 +430,7 @@ Try these queries to test different scenarios:
 !market !@#$%^&*()  (special characters)
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Here's how you can help:
 
@@ -448,50 +448,30 @@ Contributions are welcome! Here's how you can help:
 - Test your changes thoroughly
 - Update documentation as needed
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🔗 Links
+## Links
 
 - [Polymarket](https://polymarket.com) - Prediction markets platform
 - [Discord.py Documentation](https://discordpy.readthedocs.io/)
 - [RapidFuzz Documentation](https://github.com/maxbachmann/RapidFuzz)
 - [Discord Developer Portal](https://discord.com/developers/applications)
 
-## 💬 Support
 
-Having issues? Here's how to get help:
-
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Review closed GitHub issues
-3. Open a new issue with details:
-   - Python version
-   - Error messages
-   - Steps to reproduce
-   - Expected vs actual behavior
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Polymarket** for providing the public API
 - **discord.py** for the excellent Discord library
 - **RapidFuzz** for fast fuzzy string matching
 - The Discord bot development community
 
-## 📊 Future Enhancements
+## Future Enhancements
 
 Planned features for future releases:
 
-- [ ] Interactive button selection for multiple matches
-- [ ] Price alerts and notifications
-- [ ] Market tracking with live updates
-- [ ] Historical price charts
-- [ ] Portfolio integration
-- [ ] Multi-language support
-- [ ] Custom server configurations
-- [ ] Leaderboard for most-searched markets
-
----
+TBD
 
 **Made with ❤️ for the prediction markets community**
 
