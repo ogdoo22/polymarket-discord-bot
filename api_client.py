@@ -105,10 +105,10 @@ class PolymarketClient:
     async def _fetch_markets(self) -> List[Dict]:
         """
         Internal method to fetch markets from the API.
-
+        
         Returns:
             List of market dictionaries
-
+        
         Raises:
             Various aiohttp exceptions
         """
@@ -124,22 +124,30 @@ class PolymarketClient:
             async with session.get(url, params=params) as response:
                 response.raise_for_status()
 
+                # Optional: Save raw response for debugging
                 raw_text = await response.text()
                 with open("polymarket_raw_response.json", "w", encoding="utf-8") as f:
                     f.write(raw_text)
                 print("DEBUG: Raw response saved to polymarket_raw_response.json")
-
 
                 try:
                     data = await response.json()
                 except Exception:
                     raise Exception("Received invalid JSON data from Polymarket API")
 
-                # Validate response structure
-                if not isinstance(data, dict) or 'data' not in data:
-                    raise Exception("Unexpected response format from Polymarket API")
+                # Handle both response formats
+                if isinstance(data, list):
+                    # Direct array format: [{...}, {...}]
+                    markets = data
+                elif isinstance(data, dict) and 'data' in data:
+                    # Wrapped format: {"data": [{...}, {...}]}
+                    markets = data['data']
+                else:
+                    raise Exception(f"Unexpected response format from Polymarket API. Type: {type(data)}")
 
-                markets = data.get('data', [])
+                # Validate we got a list
+                if not isinstance(markets, list):
+                    raise Exception("Expected list of markets from API")
 
                 # Filter out markets without required fields
                 valid_markets = []
@@ -147,8 +155,10 @@ class PolymarketClient:
                     if self._is_valid_market(market):
                         valid_markets.append(market)
 
+                if not valid_markets:
+                    print("WARNING: No valid markets found in API response")
+                    
                 return valid_markets
-
     
     @staticmethod
     def _is_valid_market(market: Dict) -> bool:
