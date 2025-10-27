@@ -6,126 +6,126 @@ for different scenarios: single market details, multiple matches, and no results
 """
 
 import discord
+import json
 from datetime import datetime
 from typing import Dict, List, Tuple
 
 
 def build_single_market_embed(market: Dict) -> discord.Embed:
-    """
-    Build a detailed embed for a single market.
+    """Build detailed embed for a single market."""
+    yes_price, no_price = parse_outcome_prices(market)
     
-    Args:
-        market: Market dictionary from API
+    if yes_price is not None and no_price is not None:
+        odds_text = f"**Yes**: {yes_price:.1f}%\n**No**: {no_price:.1f}%"
+    else:
+        odds_text = "Odds unavailable"
+
+    # Parse outcome prices (they're stored as JSON strings)
+    try:
+        if isinstance(market.get('outcomePrices'), str):
+            prices = json.loads(market['outcomePrices'])
+        else:
+            prices = market.get('outcomePrices', [])
         
-    Returns:
-        Discord embed with market details
-    """
-    # Create embed with market question as title
+        if len(prices) >= 2:
+            yes_price = float(prices[0]) * 100
+            no_price = float(prices[1]) * 100
+            odds_text = f"**Yes**: {yes_price:.1f}%\n**No**: {no_price:.1f}%"
+        else:
+            odds_text = "Odds unavailable"
+    except (json.JSONDecodeError, ValueError, IndexError):
+        odds_text = "Odds unavailable"
+    
+    # Create embed
     embed = discord.Embed(
-        title=market['question'],
-        url=f"https://polymarket.com/market/{market['slug']}",
-        color=0x7C3AED,  # Purple brand color
-        timestamp=datetime.utcnow()
+        title=market.get('question', 'Unknown Market'),
+        description=market.get('description', '')[:200] + "..." if len(market.get('description', '')) > 200 else market.get('description', ''),
+        url=f"https://polymarket.com/market/{market.get('slug', '')}",
+        color=0x7C3AED
     )
     
-    # Add description (truncate if too long)
-    if 'description' in market and market['description']:
-        description = market['description']
-        if len(description) > 200:
-            description = description[:197] + "..."
-        embed.description = description
-    
-    # Current odds field
-    yes_price = float(market['outcomePrices'][0]) * 100
-    no_price = float(market['outcomePrices'][1]) * 100
+    # Add odds field
     embed.add_field(
         name="📊 Current Odds",
-        value=f"**Yes**: {yes_price:.1f}%\n**No**: {no_price:.1f}%",
+        value=odds_text,
         inline=True
     )
     
-    # Volume field
+    # Add volume field
     try:
-        volume = float(market['volume'])
+        volume = float(market.get('volume', 0))
         embed.add_field(
             name="💰 Volume",
             value=f"${volume:,.0f}",
             inline=True
         )
-    except (ValueError, KeyError):
+    except (ValueError, TypeError):
         embed.add_field(
             name="💰 Volume",
             value="N/A",
             inline=True
         )
     
-    # Close date field
+    # Add close date field
     try:
-        close_date = format_date(market['endDate'])
+        end_date = datetime.fromisoformat(market.get('endDate', '').replace('Z', '+00:00'))
+        date_str = end_date.strftime('%b %d, %Y at %I:%M %p ET')
         embed.add_field(
             name="📅 Closes",
-            value=close_date,
+            value=date_str,
             inline=True
         )
-    except (ValueError, KeyError):
+    except (ValueError, AttributeError):
         embed.add_field(
             name="📅 Closes",
-            value="N/A",
+            value="Date unavailable",
             inline=True
         )
     
-    # Footer
     embed.set_footer(text="Data from Polymarket")
+    embed.timestamp = datetime.utcnow()
     
     return embed
 
 
 def build_multiple_matches_embed(query: str, matches: List[Tuple[Dict, float]]) -> discord.Embed:
-    """
-    Build an embed showing multiple matching markets.
+    """Build embed showing multiple market matches."""
     
-    Args:
-        query: Original search query
-        matches: List of (market, score) tuples
-        
-    Returns:
-        Discord embed with multiple market options
-    """
-    # Create embed
     embed = discord.Embed(
         title=f"🔍 Found {len(matches)} markets matching '{query}'",
         description="Here are the closest matches:",
-        color=0x7C3AED,
-        timestamp=datetime.utcnow()
+        color=0x7C3AED
     )
     
-    # Add field for each match
     for i, (market, score) in enumerate(matches, 1):
+        # Parse outcome prices
+        try:
+            if isinstance(market.get('outcomePrices'), str):
+                prices = json.loads(market['outcomePrices'])
+            else:
+                prices = market.get('outcomePrices', [])
+            
+            if len(prices) >= 2:
+                yes_price = float(prices[0]) * 100
+                no_price = float(prices[1]) * 100
+                odds_text = f"**Yes**: {yes_price:.1f}% | **No**: {no_price:.1f}%"
+            else:
+                odds_text = "Odds unavailable"
+        except (json.JSONDecodeError, ValueError, IndexError):
+            odds_text = "Odds unavailable"
+        
         # Truncate long questions
-        question = market['question']
+        question = market.get('question', 'Unknown')
         if len(question) > 100:
             question = question[:97] + "..."
         
-        # Format odds
-        try:
-            yes_price = float(market['outcomePrices'][0]) * 100
-            no_price = float(market['outcomePrices'][1]) * 100
-            odds_text = f"**Yes**: {yes_price:.1f}% | **No**: {no_price:.1f}%"
-        except (ValueError, KeyError, IndexError):
-            odds_text = "Odds unavailable"
-        
-        # Create field value
-        field_value = f"{odds_text}\n*Match: {score:.0f}%*"
-        
-        # Add field
         embed.add_field(
             name=f"{i}. {question}",
-            value=field_value,
+            value=f"{odds_text} | Match: {score:.0f}%",
             inline=False
         )
     
-    # Footer with tip
-    embed.set_footer(text="Click the market title to view on Polymarket")
+    embed.set_footer(text="Data from Polymarket • Use the command with a more specific query for details")
     
     return embed
 
@@ -217,3 +217,36 @@ def truncate_text(text: str, max_length: int, suffix: str = "...") -> str:
         return text
     
     return text[:max_length - len(suffix)] + suffix
+
+def parse_outcome_prices(market: Dict) -> tuple:
+    """
+    Parse outcome prices from various possible formats.
+    
+    Returns:
+        (yes_price, no_price) as floats, or (None, None) if unavailable
+    """
+    prices_field = market.get('outcomePrices')
+    
+    if not prices_field:
+        return None, None
+    
+    try:
+        # Case 1: It's a JSON string like "[\"0.18\", \"0.82\"]"
+        if isinstance(prices_field, str):
+            prices = json.loads(prices_field)
+        # Case 2: It's already a list
+        elif isinstance(prices_field, list):
+            prices = prices_field
+        else:
+            return None, None
+        
+        # Extract yes/no prices
+        if len(prices) >= 2:
+            yes_price = float(prices[0]) * 100
+            no_price = float(prices[1]) * 100
+            return yes_price, no_price
+        
+    except (json.JSONDecodeError, ValueError, IndexError, TypeError):
+        pass
+    
+    return None, None
