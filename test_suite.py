@@ -3,6 +3,8 @@ Comprehensive test suite for Polymarket Discord Bot
 Tests all core modules: API client, fuzzy matcher, embed builder, and bot connection
 """
 
+# IMPORTANT: Some tests are currently failing. 
+
 import asyncio
 import time
 from typing import List, Dict
