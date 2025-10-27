@@ -153,13 +153,27 @@ class PolymarketClient:
     @staticmethod
     def _is_valid_market(market: Dict) -> bool:
         """
-        Validate that a market has all required fields.
+        Validate that a market has core required fields.
+        
+        Accepts markets with any variation of field names to handle
+        different API response structures.
         
         Args:
             market: Market dictionary to validate
-            
+
         Returns:
-            True if market has all required fields, False otherwise
+            True if market has essential data, False otherwise
         """
-        required_fields = ['question', 'slug', 'outcomePrices', 'volume', 'endDate']
-        return all(field in market for field in required_fields)
+        # Check if market is a dictionary
+        if not isinstance(market, dict):
+            return False
+        
+        # Check for question/title field (core requirement)
+        has_question = any(key in market for key in ['question', 'title', 'name', 'text'])
+        
+        # Check for at least one price/odds field
+        has_prices = any(key in market for key in ['outcomePrices', 'prices', 'odds', 'outcomes'])
+        
+        # Market is valid if it has both a question and price data
+        return has_question and has_prices
+
