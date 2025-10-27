@@ -118,7 +118,7 @@ class PolymarketClient:
             url = f"{self.base_url}/markets"
             params = {
                 'closed': 'false',
-                'limit': '250'  #The number of how many markets are being queried eg. 100 = Top 100 markets being queried
+                'limit': '500'  #The number of how many markets are being queried eg. 100 = Top 100 markets being queried
             }
 
             async with session.get(url, params=params) as response:
