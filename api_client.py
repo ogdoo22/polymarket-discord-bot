@@ -119,13 +119,11 @@ class PolymarketClient:
             url = f"{self.base_url}/markets"
             params = {
                 'closed': 'false',
-                'limit': '250'  #The number of how many markets are being queried eg. 100 = Top 100 markets being queried
+                'limit': '1000'
             }
 
             async with session.get(url, params=params) as response:
                 response.raise_for_status()
-
-                import json
 
                 # Optional: Save raw response for debugging
                 raw_text = await response.text()

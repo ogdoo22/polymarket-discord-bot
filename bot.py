@@ -12,7 +12,7 @@ import sys
 from dotenv import load_dotenv
 
 from api_client import PolymarketClient
-from fuzzy_matcher import find_matching_markets, should_show_single_market
+from fuzzy_matcher import find_matching_markets
 from embed_builder import (
     build_single_market_embed,
     build_multiple_matches_embed,
@@ -94,11 +94,15 @@ async def market(ctx: commands.Context, *, query: str):
         )
         return
     
+    # Log the search query
+    print(f"\n[SEARCH] User: {ctx.author.name} | Query: '{query}'")
+    
     # Show typing indicator while processing
     async with ctx.typing():
         try:
             # Fetch markets (cached or fresh from API)
             markets = await polymarket_client.get_markets()
+            print(f"[SEARCH] Fetched {len(markets)} markets from API")
             
             if not markets:
                 await ctx.send(
@@ -107,34 +111,28 @@ async def market(ctx: commands.Context, *, query: str):
                 )
                 return
             
-            # DEBUG: Print sample market questions
-            print(f"\n{'='*60}")
-            print(f"DEBUG: Query: '{query}'")
-           
-            
             # Find matching markets using fuzzy matching
             matches = find_matching_markets(query, markets)
             
-            # DEBUG: Print match results
-            print(f"\nDEBUG: Matches found: {len(matches)}")
+            # Log match results
+            print(f"[SEARCH] Found {len(matches)} matches")
             if matches:
-                print("DEBUG: Match details:")
-                for market, score in matches:
-                    print(f"  - Score {score:.1f}: '{market.get('question', 'NO QUESTION')}'")
-            else:
-                print("DEBUG: No matches above threshold")
-            print(f"{'='*60}\n")
+                for i, (market, score) in enumerate(matches[:3], 1):
+                    print(f"[SEARCH]   {i}. {market['question'][:60]}... (score: {score:.1f})")
             
             # Build appropriate embed based on results
             if not matches:
                 # No matches found
                 embed = build_no_matches_embed(query)
-            elif should_show_single_market(matches):
-                # Single market (high confidence or only result)
+                print("[SEARCH] Sending 'no matches' embed")
+            elif len(matches) == 1 or matches[0][1] > 85:
+                # Single market (high confidence >85% or only one result)
                 embed = build_single_market_embed(matches[0][0])
+                print(f"[SEARCH] Sending single market embed (score: {matches[0][1]:.1f})")
             else:
-                # Multiple matches
+                # Multiple matches (2-5 results with scores 60-85)
                 embed = build_multiple_matches_embed(query, matches)
+                print(f"[SEARCH] Sending multiple matches embed ({len(matches)} markets)")
             
             # Send embed
             await ctx.send(embed=embed)
@@ -149,13 +147,16 @@ async def market(ctx: commands.Context, *, query: str):
         except Exception as e:
             # General error handler
             error_message = str(e)
-            print(f"Error in market command: {e}")
+            print(f"[ERROR] Error in market command: {e}")
+            import traceback
+            traceback.print_exc()
             
             # Send user-friendly error message
             await ctx.send(
                 f"❌ An error occurred: {error_message}\n"
                 "Please try again in a moment."
             )
+
 
 @market.error
 async def market_error(ctx: commands.Context, error: commands.CommandError):
@@ -178,7 +179,7 @@ async def market_error(ctx: commands.Context, error: commands.CommandError):
         )
     else:
         # Unknown error
-        print(f"Unhandled error in market command: {error}")
+        print(f"[ERROR] Unhandled error in market command: {error}")
         await ctx.send(
             "❌ An unexpected error occurred. Please try again later."
         )
@@ -196,7 +197,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         return
     
     # Log the error
-    print(f"Command error: {error}")
+    print(f"[ERROR] Command error: {error}")
     
     # Don't send error messages for command not found
     if isinstance(error, commands.CommandNotFound):
@@ -223,27 +224,39 @@ async def help_market(ctx: commands.Context):
     embed.add_field(
         name="📝 Examples",
         value=(
-            f"`{COMMAND_PREFIX}market Bitcoin 200k 2027`\n"
-            f"`{COMMAND_PREFIX}market Trump election`\n"
-            f"`{COMMAND_PREFIX}market Ethereum price 5000`"
+            f"`{COMMAND_PREFIX}market Trump Department Education`\n"
+            f"`{COMMAND_PREFIX}market Bitcoin 2025`\n"
+            f"`{COMMAND_PREFIX}market Fed rate hike`\n"
+            f"`{COMMAND_PREFIX}market Ukraine NATO`\n"
+            f"`{COMMAND_PREFIX}market recession 2025`"
         ),
         inline=False
     )
     
     embed.add_field(
-        name="💡 Tips",
+        name="💡 Search Tips",
         value=(
-            "• Use natural language - the bot understands typos and variations\n"
+            "• Use natural language - the bot handles typos and variations\n"
             "• Be specific but not overly detailed\n"
-            "• Search for key terms from the market question\n"
-            "• Results show the closest matching active markets"
+            "• Search for key terms from the market title\n"
+            "• High-volume markets are easier to find\n"
+            "• Popular topics: politics, crypto, economy, geopolitics"
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="⚠️ Coverage Limitation",
+        value=(
+            "This bot searches **~500 most popular markets** by trading volume. "
+            "Niche or low-volume markets may not appear even if they exist on polymarket.com."
         ),
         inline=False
     )
     
     embed.add_field(
         name="⏱️ Rate Limit",
-        value="You can use this command once every 5 seconds",
+        value="One command every 5 seconds per user",
         inline=False
     )
     
@@ -275,9 +288,25 @@ async def info(ctx: commands.Context):
     )
     
     embed.add_field(
-        name="🔗 Links",
-        value="[Polymarket](https://polymarket.com)\n[Bot Source](https://github.com)",
+        name="🔍 Market Coverage",
+        value="Top ~500 markets by volume",
         inline=True
+    )
+    
+    embed.add_field(
+        name="ℹ️ Important",
+        value=(
+            "This bot searches the **most popular markets** from Polymarket's API. "
+            "Low-volume or niche markets may not appear in search results even if they exist on polymarket.com. "
+            "For best results, search for high-volume topics like politics, crypto, or major events."
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🔗 Links",
+        value="[Polymarket](https://polymarket.com) • [All Markets](https://polymarket.com/markets)",
+        inline=False
     )
     
     embed.set_footer(text=f"Discord.py {discord.__version__}")

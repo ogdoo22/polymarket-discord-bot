@@ -238,7 +238,7 @@ matches = process.extract(
     market_questions.keys(),
     scorer=fuzz.token_set_ratio,
     limit=10,  # Increase from 5 to 10
-    score_cutoff=60
+    score_cutoff=45
 )
 ```
 

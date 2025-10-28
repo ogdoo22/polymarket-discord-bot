@@ -1,109 +1,127 @@
 """
-Fuzzy string matching for finding relevant Polymarket markets.
-
-This module uses RapidFuzz to perform fuzzy string matching between
-user queries and market questions, allowing for typos and approximate matches.
+Fuzzy string matching for Polymarket markets.
+Uses multiple scoring strategies to improve match quality.
 """
 
 from rapidfuzz import process, fuzz
 from typing import List, Dict, Tuple
-import re
 
 
 def find_matching_markets(query: str, markets: List[Dict]) -> List[Tuple[Dict, float]]:
-    """Find markets matching the query using fuzzy string matching."""
+    """
+    Find markets matching the query using fuzzy string matching.
     
+    Uses a combination of scorers to handle different query types:
+    - token_set_ratio: Word order variations
+    - token_sort_ratio: Alternative word ordering
+    - partial_ratio: Substring/phrase matching
+    
+    Adaptive thresholds based on query length:
+    - 1-2 words: threshold 50 (short queries need leniency)
+    - 3-4 words: threshold 55 (moderate)
+    - 5+ words: threshold 60 (standard precision)
+    
+    Args:
+        query: User's search query string
+        markets: List of market dictionaries from API
+        
+    Returns:
+        List of tuples: (market_dict, similarity_score)
+        Sorted by score descending, max 5 results
+        
+    Example:
+        >>> markets = [{"question": "Will Bitcoin hit $200k?", ...}]
+        >>> matches = find_matching_markets("Bitcoin 200k", markets)
+        >>> [(market, score)] = matches
+        >>> market["question"]
+        'Will Bitcoin hit $200k?'
+    """
+    # Handle edge cases
     if not markets:
         return []
     
     if not query or not query.strip():
         return []
     
-    # Extract years from query
-    query_years = extract_year(query.lower())
-    
     # Create mapping of questions to market objects
     market_map = {market['question']: market for market in markets}
-    market_questions = list(market_map.keys())
+    questions = list(market_map.keys())
     
-    # Use different threshold for short vs long queries
-    query_words = len(query.split())
-    if query_words <= 2:
-        scorer = fuzz.partial_ratio
-        cutoff = 70
+    # Normalize query (lowercase, strip extra whitespace)
+    normalized_query = " ".join(query.lower().split())
+    
+    # Track results from multiple strategies
+    results_map = {}
+    
+    # Strategy 1: token_set_ratio (handles word order)
+    try:
+        matches_token_set = process.extract(
+            normalized_query,
+            questions,
+            scorer=fuzz.token_set_ratio,
+            limit=10,
+            score_cutoff=50  # Lower to catch more candidates
+        )
+        
+        for question, score, _ in matches_token_set:
+            if question not in results_map or score > results_map[question]:
+                results_map[question] = score
+    except Exception:
+        pass  # Continue with other strategies if one fails
+    
+    # Strategy 2: token_sort_ratio (alternative word order)
+    try:
+        matches_token_sort = process.extract(
+            normalized_query,
+            questions,
+            scorer=fuzz.token_sort_ratio,
+            limit=10,
+            score_cutoff=50
+        )
+        
+        for question, score, _ in matches_token_sort:
+            if question not in results_map or score > results_map[question]:
+                results_map[question] = score
+    except Exception:
+        pass
+    
+    # Strategy 3: partial_ratio (substring matching)
+    try:
+        matches_partial = process.extract(
+            normalized_query,
+            questions,
+            scorer=fuzz.partial_ratio,
+            limit=10,
+            score_cutoff=70  # Higher threshold for partial
+        )
+        
+        for question, score, _ in matches_partial:
+            if question in results_map:
+                # Blend scores if found by multiple strategies
+                results_map[question] = (results_map[question] * 0.6 + score * 0.4)
+            elif score > 75:
+                # Only add high-scoring partial-only matches
+                results_map[question] = score * 0.9
+    except Exception:
+        pass
+    
+    # Determine threshold based on query length
+    query_word_count = len(normalized_query.split())
+    
+    if query_word_count <= 2:
+        final_threshold = 50
+    elif query_word_count <= 4:
+        final_threshold = 55
     else:
-        scorer = fuzz.token_set_ratio
-        cutoff = 45
+        final_threshold = 60
     
-    # Perform fuzzy matching
-    matches = process.extract(
-        query,
-        market_questions,
-        scorer=scorer,
-        limit=10,  # Get more candidates
-        score_cutoff=cutoff
-    )
+    # Filter and convert to list
+    combined_matches = [
+        (market_map[question], score)
+        for question, score in results_map.items()
+        if score >= final_threshold
+    ]
     
-    # Adjust scores based on year matching
-    adjusted_matches = []
-    for question, score, _ in matches:
-        market = market_map[question]
-        question_years = extract_year(question.lower())
-        
-        # If query has a year and market has a different year, penalize
-        if query_years and question_years and not query_years.intersection(question_years):
-            score = score * 0.6  # Reduce score by 40%
-        
-        adjusted_matches.append((market, score))
-    
-    # Re-sort by adjusted score and filter
-    adjusted_matches.sort(key=lambda x: x[1], reverse=True)
-    
-    # Filter out scores below cutoff after adjustment
-    adjusted_matches = [(m, s) for m, s in adjusted_matches if s >= cutoff]
-    
-    # Return top 5
-    return adjusted_matches[:5]
-
-
-def get_match_quality(score: float) -> str:
-    """
-    Classify match quality based on similarity score.
-    
-    Args:
-        score: Similarity score from 0-100
-        
-    Returns:
-        String describing match quality: "excellent", "good", "fair", or "poor"
-    """
-    if score >= 90:
-        return "excellent"
-    elif score >= 80:
-        return "good"
-    elif score >= 70:
-        return "fair"
-    else:
-        return "poor"
-
-
-def should_show_single_market(matches: List[Tuple[Dict, float]]) -> bool:
-    """
-    Determine if we should show a single market or multiple matches.
-    
-    Args:
-        matches: List of (market, score) tuples
-        
-    Returns:
-        True if we should show single market detail view, False for list view
-    """
-    if not matches:
-        return False
-    
-    # Show single market if:
-    # 1. Only one match found, OR
-    # 2. Top match has very high confidence (>85)
-    return len(matches) == 1 or matches[0][1] > 85
-
-def extract_year(text: str) -> set:
-    """Extract years from text (e.g., 2025, 2027)."""
-    return set(re.findall(r'\b(20\d{2})\b', text))
+    # Sort by score descending and return top 5
+    combined_matches.sort(key=lambda x: x[1], reverse=True)
+    return combined_matches[:5]
