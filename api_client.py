@@ -9,6 +9,7 @@ import aiohttp
 import asyncio
 import time
 import os
+import json
 from typing import List, Dict, Optional
 
 
@@ -118,16 +119,27 @@ class PolymarketClient:
             url = f"{self.base_url}/markets"
             params = {
                 'closed': 'false',
-                'limit': '500'  #The number of how many markets are being queried eg. 100 = Top 100 markets being queried
+                'limit': '250'  #The number of how many markets are being queried eg. 100 = Top 100 markets being queried
             }
 
             async with session.get(url, params=params) as response:
                 response.raise_for_status()
 
+                import json
+
                 # Optional: Save raw response for debugging
                 raw_text = await response.text()
-                with open("polymarket_raw_response.json", "w", encoding="utf-8") as f:
-                    f.write(raw_text)
+                try:
+                    # Parse and pretty-print JSON
+                    parsed = json.loads(raw_text)
+                    with open("polymarket_raw_response.json", "w", encoding="utf-8") as f:
+                        json.dump(parsed, f, indent=4)
+                except Exception as e:
+                    # If raw_text isn't valid JSON, just save as-is
+                    with open("polymarket_raw_response.json", "w", encoding="utf-8") as f:
+                        f.write(raw_text)
+                    print("DEBUG: Could not parse JSON for pretty formatting:", e)
+
                 print("DEBUG: Raw response saved to polymarket_raw_response.json")
 
                 try:
